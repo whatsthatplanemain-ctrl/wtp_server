@@ -6,8 +6,8 @@ import os
 
 app = Flask(__name__)
 
-# Load your trained model
-model = torch.load("aircraft_model.pt", map_location="cpu")
+# Load your trained model (safe because it's your own file)
+model = torch.load("aircraft_model.pt", map_location="cpu", weights_only=False)
 model.eval()
 
 # Define preprocessing (adjust to match your training pipeline)
@@ -18,8 +18,23 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# Replace with your actual aircraft classes
-labels = ["A320", "B737", "F16", "Cessna"]
+# Aircraft classes (alphabetical order of your dataset folders)
+labels = [
+    "737",
+    "747",
+    "757",
+    "777",
+    "a310",
+    "a320",
+    "a330",
+    "a330-beluga",
+    "a340",
+    "a350",
+    "an_124",
+    "cessna172",
+    "eurofighter_typhoon",
+    "not_planes"
+]
 
 @app.route("/")
 def home():
@@ -42,5 +57,5 @@ def predict():
     return jsonify({"result": result})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render gives PORT, fallback to 5000 locally
+    port = int(os.environ.get("PORT", 5000))  # Render provides PORT
     app.run(host="0.0.0.0", port=port)
