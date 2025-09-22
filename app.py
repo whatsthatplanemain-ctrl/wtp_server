@@ -1,61 +1,63 @@
 from flask import Flask, request, jsonify
-from PIL import Image
 import torch
+from PIL import Image
 import torchvision.transforms as transforms
-import os
 
 app = Flask(__name__)
 
-# Load your trained model (safe because it's your own file)
-model = torch.load("model_aircraft.pt", map_location="cpu", weights_only=False)
+# Load the TorchScript model
+# Make sure the filename matches exactly what you pushed to GitHub
+MODEL_PATH = "model_aircraft.pt"
+model = torch.jit.load(MODEL_PATH, map_location="cpu")
 model.eval()
 
-# Define preprocessing (adjust to match your training pipeline)
+# Define preprocessing (adjust if your training pipeline was different)
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.Resize((224, 224)),   # resize to model’s expected input
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225])
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],  # standard ImageNet normalization
+        std=[0.229, 0.224, 0.225]
+    )
 ])
 
-# Aircraft classes (alphabetical order of your dataset folders)
+# Example labels (replace with your actual aircraft classes)
 labels = [
-    "737",
-    "747",
-    "757",
-    "777",
-    "a310",
-    "a320",
-    "a330",
-    "a330-beluga",
-    "a340",
-    "a350",
-    "an_124",
-    "cessna172",
-    "eurofighter_typhoon",
-    "not_planes"
+    "Airbus A320",
+    "Boeing 737",
+    "Boeing 747",
+    "Boeing 777",
+    "Concorde",
+    "F-16 Fighting Falcon",
+    "Cessna 172"
 ]
 
-@app.route("/")
-def home():
-    return "🚀 Aircraft recognition server is running!"
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"message": "Aircraft recognition API is running."})
 
 @app.route("/predict", methods=["POST"])
 def predict():
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded!"}), 400
+        return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
-    img = Image.open(file.stream).convert("RGB")
-    img_t = transform(img).unsqueeze(0)
+    try:
+        image = Image.open(file.stream).convert("RGB")
+        input_tensor = transform(image).unsqueeze(0)  # add batch dimension
 
-    with torch.no_grad():
-        outputs = model(img_t)
-        _, predicted = outputs.max(1)
-        result = labels[predicted.item()]
+        with torch.no_grad():
+            outputs = model(input_tensor)
+            _, predicted = torch.max(outputs, 1)
+            class_id = predicted.item()
+            class_name = labels[class_id] if class_id < len(labels) else str(class_id)
 
-    return jsonify({"result": result})
+        return jsonify({"class_id": class_id, "class_name": class_name})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render provides PORT
-    app.run(host="0.0.0.0", port=port)
+    # For local testing only; Render will use gunicorn
+    app.run(host="0.0.0.0", port=5000, debug=True)
