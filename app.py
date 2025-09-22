@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 # Load your trained model (safe because it's your own file)
-model = torch.load("aircraft_model.pt", map_location="cpu", weights_only=False)
+model = torch.load("model_aircraft.pt", map_location="cpu", weights_only=False)
 model.eval()
 
 # Define preprocessing (adjust to match your training pipeline)
